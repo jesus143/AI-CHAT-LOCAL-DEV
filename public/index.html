@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Chat</title>
+  <style>
+    body { font-family: Arial, sans-serif; display: flex; flex-direction: column; height: 100vh; margin: 0; }
+    #chat { flex: 1; padding: 10px; overflow-y: auto; background: #f5f5f5; display: flex; flex-direction: column; }
+    .msg { margin: 5px 0; padding: 8px 12px; border-radius: 8px; max-width: 70%; white-space: pre-wrap; }
+    .user { background: #0084ff; color: white; align-self: flex-end; }
+    .ai { background: #e0e0e0; color: black; align-self: flex-start; }
+    .typing { font-style: italic; color: gray; align-self: flex-start; }
+    pre { background: #2d2d2d; color: #f8f8f2; padding: 10px; border-radius: 6px; overflow-x: auto; }
+    code { font-family: monospace; }
+    #inputBox { display: flex; border-top: 1px solid #ccc; }
+    #input { flex: 1; padding: 10px; border: none; outline: none; }
+    #send { padding: 10px; border: none; background: #0084ff; color: white; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div id="chat"></div>
+  <div id="inputBox">
+    <input id="input" type="text" placeholder="Type a message..." />
+    <button id="send">Send</button>
+  </div>
+
+  <script>
+    const chat = document.getElementById("chat");
+    const input = document.getElementById("input");
+    const sendBtn = document.getElementById("send");
+
+    const ws = new WebSocket("ws://localhost:3000");
+    let typingDiv = null;
+
+    ws.onmessage = (event) => {
+      if (typingDiv) {
+        typingDiv.remove(); // remove typing indicator when AI responds
+        typingDiv = null;
+      }
+      const msg = JSON.parse(event.data);
+      addMessage(msg.text, msg.sender);
+    };
+
+    sendBtn.onclick = sendMessage;
+    input.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") sendMessage();
+    });
+
+    function sendMessage() {
+      const text = input.value.trim();
+      if (text) {
+        ws.send(text);
+        // addMessage(text, "user");
+        input.value = "";
+        showTyping();
+      }
+    }
+
+    function addMessage(text, sender) {
+      const div = document.createElement("div");
+      div.className = "msg " + sender;
+
+      // detect if text contains code (```...```)
+      if (text.includes("```")) {
+        const parts = text.split(/```/);
+        parts.forEach((part, i) => {
+          if (i % 2 === 0) {
+            // normal text
+            if (part.trim()) {
+              const span = document.createElement("div");
+              span.textContent = part;
+              div.appendChild(span);
+            }
+          } else {
+            // code block
+            const pre = document.createElement("pre");
+            const code = document.createElement("code");
+            code.textContent = part.trim();
+            pre.appendChild(code);
+            div.appendChild(pre);
+          }
+        });
+      } else {
+        div.textContent = text;
+      }
+
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function showTyping() {
+      typingDiv = document.createElement("div");
+      typingDiv.className = "msg typing";
+      typingDiv.textContent = "AI is typing...";
+      chat.appendChild(typingDiv);
+      chat.scrollTop = chat.scrollHeight;
+    }
+  </script>
+</body>
+</html>
