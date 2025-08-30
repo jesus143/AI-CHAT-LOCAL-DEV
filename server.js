@@ -47,7 +47,7 @@ wss.on("connection", (ws) => {
 // Helper: Fetch AI reply from Flask backend
 async function getAIResponse(message) {
   const res = await fetch("http://localhost:5000/chat", {
-    method: "POST",
+    method: "GET",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message }),
   });
