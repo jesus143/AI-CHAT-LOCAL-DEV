@@ -82,9 +82,9 @@ def chat():
     # Build message with context if available
     message_with_context = user_message
     if context:
-        message_with_context = f"{context}\n\nQ: {user_message}\n\nAnswer concisely based on context above. If unsure, say 'Not sure based on provided info.'"
+        message_with_context = f"{context}\n\nQ: {user_message}\n\nAnswer concisely and short as possible based on context above. If unsure, say 'Not sure based on provided info.'"
     else:
-        message_with_context = f"{user_message}\n\nAnswer concisely."
+        message_with_context = f"{user_message}\n\nAnswer as concisely as possible and short as possible."
     
     conversation_history.append({
         "role": "user",
