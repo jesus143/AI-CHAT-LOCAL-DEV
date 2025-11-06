@@ -25,7 +25,9 @@ class VectorStore:
         self.metadata_path = os.path.join(persist_directory, f"{collection_name}_metadata.pkl")
         
         # Load embedding model (using a lightweight model)
-        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+        # Set device to 'cpu' explicitly and disable multiprocessing
+        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2', device='cpu')
+        self.embedding_model.encode("warmup", show_progress_bar=False)  # Warmup to initialize model
         self.dimension = 384  # all-MiniLM-L6-v2 embedding dimension
         
         # Initialize or load FAISS index
@@ -50,7 +52,7 @@ class VectorStore:
             Number of chunks added
         """
         texts = [chunk["text"] for chunk in chunks]
-        embeddings = self.embedding_model.encode(texts)
+        embeddings = self.embedding_model.encode(texts, show_progress_bar=False, convert_to_numpy=True)
         
         # Add embeddings to FAISS index
         self.index.add(np.array(embeddings).astype('float32'))
@@ -84,7 +86,7 @@ class VectorStore:
             return []
         
         # Generate embedding for query
-        query_embedding = self.embedding_model.encode([query])
+        query_embedding = self.embedding_model.encode([query], show_progress_bar=False, convert_to_numpy=True)
         
         # Search in FAISS index
         n_results = min(n_results, self.index.ntotal)

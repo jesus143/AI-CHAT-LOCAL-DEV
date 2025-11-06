@@ -1,3 +1,8 @@
+import os
+# Set environment variables before any other imports to prevent multiprocessing issues
+os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+os.environ['OMP_NUM_THREADS'] = '1'
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
@@ -5,7 +10,6 @@ import subprocess
 import sys
 import sqlite3
 import re
-import os
 
 from document_processor import DocumentProcessor
 from vector_store import VectorStore
