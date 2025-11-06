@@ -26,6 +26,18 @@
     .stat-label { color: #666; }
     .stat-value { font-weight: bold; color: #333; }
     
+    /* File List */
+    #fileList { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px; max-height: 300px; overflow-y: auto; }
+    #fileList h3 { margin: 0 0 10px 0; font-size: 14px; color: #666; }
+    .file-item { display: flex; align-items: center; padding: 8px; margin: 4px 0; background: white; border-radius: 6px; font-size: 13px; }
+    .file-item:hover { background: #f0f8ff; }
+    .file-item input[type="checkbox"] { margin-right: 10px; cursor: pointer; }
+    .file-name { flex: 1; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-chunks { color: #666; font-size: 11px; margin-left: 5px; }
+    .select-actions { display: flex; gap: 5px; margin-bottom: 10px; }
+    .select-actions button { padding: 4px 8px; font-size: 11px; border: none; background: #0084ff; color: white; border-radius: 4px; cursor: pointer; }
+    .select-actions button:hover { background: #0066cc; }
+    
     /* Buttons */
     .btn { padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
     .btn-danger { background: #dc3545; color: white; width: 100%; }
@@ -87,6 +99,16 @@
       </div>
     </div>
     
+    <!-- File List -->
+    <div id="fileList" style="display: none;">
+      <h3>📂 Uploaded Files</h3>
+      <div class="select-actions">
+        <button id="selectAll">Select All</button>
+        <button id="deselectAll">Deselect All</button>
+      </div>
+      <div id="fileListContent"></div>
+    </div>
+    
     <!-- Clear Button -->
     <button class="btn btn-danger" id="clearBtn">🗑️ Clear All Documents</button>
   </div>
@@ -109,9 +131,14 @@
     const clearBtn = document.getElementById("clearBtn");
     const totalChunksEl = document.getElementById("totalChunks");
     const ragStatusEl = document.getElementById("ragStatus");
+    const fileListEl = document.getElementById("fileList");
+    const fileListContentEl = document.getElementById("fileListContent");
+    const selectAllBtn = document.getElementById("selectAll");
+    const deselectAllBtn = document.getElementById("deselectAll");
 
     const ws = new WebSocket("ws://localhost:3000");
     let typingDiv = null;
+    let uploadedFiles = [];
 
     // WebSocket handlers
     ws.onmessage = (event) => {
@@ -137,10 +164,23 @@
     function sendMessage() {
       const text = input.value.trim();
       if (text) {
-        ws.send(text);
+        // Get selected files
+        const selectedFiles = getSelectedFiles();
+        
+        // Send message with selected files info
+        ws.send(JSON.stringify({
+          message: text,
+          selectedFiles: selectedFiles.length > 0 ? selectedFiles : null
+        }));
+        
         input.value = "";
         showTyping();
       }
+    }
+    
+    function getSelectedFiles() {
+      const checkboxes = document.querySelectorAll('.file-item input[type="checkbox"]:checked');
+      return Array.from(checkboxes).map(cb => cb.value);
     }
 
     function addMessage(text, sender, usedRag = false) {
@@ -249,10 +289,69 @@
         totalChunksEl.textContent = data.total_chunks || 0;
         ragStatusEl.textContent = data.total_chunks > 0 ? "Ready" : "No documents";
         ragStatusEl.style.color = data.total_chunks > 0 ? "#28a745" : "#666";
+        
+        // Also update file list
+        await updateFileList();
       } catch (error) {
         console.error("Error fetching stats:", error);
       }
     }
+    
+    // File list update
+    async function updateFileList() {
+      try {
+        const response = await fetch("http://localhost:5001/files");
+        const data = await response.json();
+        uploadedFiles = data.files || [];
+        
+        if (uploadedFiles.length > 0) {
+          fileListEl.style.display = "block";
+          renderFileList();
+        } else {
+          fileListEl.style.display = "none";
+        }
+      } catch (error) {
+        console.error("Error fetching files:", error);
+      }
+    }
+    
+    function renderFileList() {
+      fileListContentEl.innerHTML = "";
+      
+      uploadedFiles.forEach(file => {
+        const fileItem = document.createElement("div");
+        fileItem.className = "file-item";
+        
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.value = file.filename;
+        checkbox.checked = true; // Default: all files selected
+        
+        const fileName = document.createElement("span");
+        fileName.className = "file-name";
+        fileName.textContent = file.filename;
+        fileName.title = file.filename; // Full name on hover
+        
+        const fileChunks = document.createElement("span");
+        fileChunks.className = "file-chunks";
+        fileChunks.textContent = `(${file.chunk_count} chunks)`;
+        
+        fileItem.appendChild(checkbox);
+        fileItem.appendChild(fileName);
+        fileItem.appendChild(fileChunks);
+        
+        fileListContentEl.appendChild(fileItem);
+      });
+    }
+    
+    // Select/Deselect all
+    selectAllBtn.onclick = () => {
+      document.querySelectorAll('.file-item input[type="checkbox"]').forEach(cb => cb.checked = true);
+    };
+    
+    deselectAllBtn.onclick = () => {
+      document.querySelectorAll('.file-item input[type="checkbox"]').forEach(cb => cb.checked = false);
+    };
 
     // Clear documents
     clearBtn.onclick = async () => {

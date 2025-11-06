@@ -50,11 +50,14 @@ def chat():
     data = request.get_json()
     user_message = data.get("message", "")
     use_rag = data.get("use_rag", True)  # Use RAG by default if documents are available
+    selected_files = data.get("selected_files", None)  # Optional list of filenames to filter
 
     if not user_message:
         return jsonify({"error": "Please provide a message"}), 400
 
     logger("User: " + user_message)
+    if selected_files:
+        logger(f"Selected files: {selected_files}")
     
     # Check if we should use RAG
     context = ""
@@ -63,11 +66,12 @@ def chat():
         stats = vector_store.get_collection_stats()
         if stats['total_chunks'] > 0:
             # Retrieve relevant context from vector store
-            retrieved_chunks = vector_store.search(user_message, n_results=3)
+            # Pass selected_files to filter search (None = search all files)
+            retrieved_chunks = vector_store.search(user_message, n_results=3, filenames=selected_files)
             if retrieved_chunks:
                 context = "\n\nRelevant context from uploaded documents:\n"
                 for i, chunk in enumerate(retrieved_chunks, 1):
-                    context += f"\n[Context {i}]:\n{chunk['text']}\n"
+                    context += f"\n[Context {i}] (from {chunk['filename']}):\n{chunk['text']}\n"
                 logger(f"Retrieved {len(retrieved_chunks)} relevant chunks")
     
     # Build message with context if available
@@ -207,6 +211,13 @@ def get_stats():
     """Get vector store statistics"""
     stats = vector_store.get_collection_stats()
     return jsonify(stats)
+
+
+@app.route("/files", methods=["GET"])
+def list_files():
+    """List all uploaded files with metadata"""
+    files = vector_store.get_uploaded_files()
+    return jsonify({"files": files})
 
 
 @app.route("/clear", methods=["POST"])

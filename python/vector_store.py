@@ -71,13 +71,14 @@ class VectorStore:
         
         return len(chunks)
     
-    def search(self, query: str, n_results: int = 3) -> List[Dict]:
+    def search(self, query: str, n_results: int = 3, filenames: List[str] = None) -> List[Dict]:
         """
         Search for relevant document chunks
         
         Args:
             query: The search query
             n_results: Number of results to return
+            filenames: Optional list of filenames to filter by (None = all files)
         
         Returns:
             List of relevant chunks with metadata
@@ -88,20 +89,30 @@ class VectorStore:
         # Generate embedding for query
         query_embedding = self.embedding_model.encode([query], show_progress_bar=False, convert_to_numpy=True)
         
+        # If filtering by filenames, we need to search more and then filter
+        search_limit = self.index.ntotal if filenames else n_results
+        search_limit = min(search_limit, self.index.ntotal)
+        
         # Search in FAISS index
-        n_results = min(n_results, self.index.ntotal)
         distances, indices = self.index.search(
             np.array(query_embedding).astype('float32'), 
-            n_results
+            search_limit
         )
         
-        # Format results
+        # Format and filter results
         formatted_results = []
         for i, idx in enumerate(indices[0]):
             if idx < len(self.metadata):
                 result = self.metadata[idx].copy()
                 result["distance"] = float(distances[0][i])
-                formatted_results.append(result)
+                
+                # Apply filename filter if provided
+                if filenames is None or result["filename"] in filenames:
+                    formatted_results.append(result)
+                    
+                    # Stop if we have enough results
+                    if len(formatted_results) >= n_results:
+                        break
         
         return formatted_results
     
@@ -111,6 +122,21 @@ class VectorStore:
             "total_chunks": self.index.ntotal,
             "collection_name": self.collection_name
         }
+    
+    def get_uploaded_files(self) -> List[Dict]:
+        """Get list of all uploaded files with chunk counts"""
+        files_map = {}
+        
+        for chunk in self.metadata:
+            filename = chunk["filename"]
+            if filename not in files_map:
+                files_map[filename] = {
+                    "filename": filename,
+                    "chunk_count": 0
+                }
+            files_map[filename]["chunk_count"] += 1
+        
+        return list(files_map.values())
     
     def clear_collection(self):
         """Clear all documents from the collection"""

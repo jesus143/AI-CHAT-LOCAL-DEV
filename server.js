@@ -16,8 +16,25 @@ wss.on("connection", (ws) => {
   console.log("Client connected");
 
   ws.on("message", async (message) => {
-    const userMessage = message.toString();
+    const messageStr = message.toString();
+
+    // Parse message - could be plain text or JSON
+    let userMessage;
+    let selectedFiles = null;
+
+    try {
+      const parsed = JSON.parse(messageStr);
+      userMessage = parsed.message;
+      selectedFiles = parsed.selectedFiles;
+    } catch {
+      // If not JSON, treat as plain text (backward compatibility)
+      userMessage = messageStr;
+    }
+
     console.log("Received:", userMessage);
+    if (selectedFiles) {
+      console.log("Selected files:", selectedFiles);
+    }
 
     // Broadcast user message to everyone
     wss.clients.forEach((client) => {
@@ -28,7 +45,7 @@ wss.on("connection", (ws) => {
 
     // Call Flask backend for AI response
     try {
-      const aiData = await getAIResponse(userMessage);
+      const aiData = await getAIResponse(userMessage, selectedFiles);
       console.log(" aiResponse ", aiData);
 
       // Send AI response only to the sender with RAG info
@@ -51,11 +68,18 @@ wss.on("connection", (ws) => {
 });
 
 // Helper: Fetch AI reply from Flask backend
-async function getAIResponse(message) {
+async function getAIResponse(message, selectedFiles = null) {
+  const requestBody = { message };
+
+  // Add selected files to request if provided
+  if (selectedFiles && selectedFiles.length > 0) {
+    requestBody.selected_files = selectedFiles;
+  }
+
   const res = await fetch("http://localhost:5001/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify(requestBody),
   });
 
   const data = await res.json();
