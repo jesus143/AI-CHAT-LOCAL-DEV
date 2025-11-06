@@ -30,6 +30,9 @@ class VectorStore:
         self.embedding_model.encode("warmup", show_progress_bar=False)  # Warmup to initialize model
         self.dimension = 384  # all-MiniLM-L6-v2 embedding dimension
         
+        # Cache for query embeddings to speed up repeated queries
+        self._query_cache = {}
+        
         # Initialize or load FAISS index
         if os.path.exists(self.index_path):
             self.index = faiss.read_index(self.index_path)
@@ -86,8 +89,19 @@ class VectorStore:
         if self.index.ntotal == 0:
             return []
         
-        # Generate embedding for query
-        query_embedding = self.embedding_model.encode([query], show_progress_bar=False, convert_to_numpy=True)
+        # Check cache first (huge speed boost for repeated queries)
+        cache_key = query.lower().strip()
+        if cache_key in self._query_cache:
+            query_embedding = self._query_cache[cache_key]
+        else:
+            # Generate embedding for query
+            query_embedding = self.embedding_model.encode([query], show_progress_bar=False, convert_to_numpy=True)
+            
+            # Cache it (limit cache size to prevent memory issues)
+            if len(self._query_cache) > 100:
+                # Clear oldest entries
+                self._query_cache.pop(next(iter(self._query_cache)))
+            self._query_cache[cache_key] = query_embedding
         
         # If filtering by filenames, we need to search more and then filter
         search_limit = self.index.ntotal if filenames else n_results

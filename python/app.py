@@ -23,6 +23,11 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf', 'docx'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
+# Performance Configuration
+N_RESULTS = 2  # Number of chunks to retrieve (2 is faster, 3 is more context)
+CHUNK_SIZE = 500  # Chunk size in characters (smaller = faster, larger = more context)
+CHUNK_OVERLAP = 50  # Overlap between chunks
+
 # Global conversation history
 conversation_history = []
 MAX_HISTORY = 10  # keep only last 10 exchanges
@@ -67,7 +72,7 @@ def chat():
         if stats['total_chunks'] > 0:
             # Retrieve relevant context from vector store
             # Pass selected_files to filter search (None = search all files)
-            retrieved_chunks = vector_store.search(user_message, n_results=3, filenames=selected_files)
+            retrieved_chunks = vector_store.search(user_message, n_results=N_RESULTS, filenames=selected_files)
             if retrieved_chunks:
                 context = "\n\nRelevant context from uploaded documents:\n"
                 for i, chunk in enumerate(retrieved_chunks, 1):
@@ -77,9 +82,9 @@ def chat():
     # Build message with context if available
     message_with_context = user_message
     if context:
-        message_with_context = f"{context}\n\nBased on the above context, please answer: {user_message}"
-    
-    message_with_context += ". [Please always make your response concise and short. If you don't know the answer based on the provided context, say 'I am not sure based on the provided information.']"
+        message_with_context = f"{context}\n\nQ: {user_message}\n\nAnswer concisely based on context above. If unsure, say 'Not sure based on provided info.'"
+    else:
+        message_with_context = f"{user_message}\n\nAnswer concisely."
     
     conversation_history.append({
         "role": "user",
@@ -181,7 +186,7 @@ def upload_file():
             logger(f"Extracted {len(text)} characters from {filename}")
             
             # Chunk text
-            chunks = doc_processor.chunk_text(text, chunk_size=500, overlap=50)
+            chunks = doc_processor.chunk_text(text, chunk_size=CHUNK_SIZE, overlap=CHUNK_OVERLAP)
             logger(f"Created {len(chunks)} chunks")
             
             # Add to vector store
