@@ -28,11 +28,17 @@ wss.on("connection", (ws) => {
 
     // Call Flask backend for AI response
     try {
-      const aiResponse = await getAIResponse(userMessage);
-      console.log(" aiResponse ", aiResponse)
+      const aiData = await getAIResponse(userMessage);
+      console.log(" aiResponse ", aiData);
 
-      // Send AI response only to the sender
-      ws.send(JSON.stringify({ sender: "ai", text: aiResponse }));
+      // Send AI response only to the sender with RAG info
+      ws.send(
+        JSON.stringify({
+          sender: "ai",
+          text: aiData.reply,
+          usedRag: aiData.used_rag || false,
+        })
+      );
     } catch (err) {
       console.error("Error getting AI response:", err);
       ws.send(JSON.stringify({ sender: "ai", text: "⚠️ AI backend error" }));
@@ -46,14 +52,18 @@ wss.on("connection", (ws) => {
 
 // Helper: Fetch AI reply from Flask backend
 async function getAIResponse(message) {
-  const res = await fetch("http://localhost:5000/chat", {
+  const res = await fetch("http://localhost:5001/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message }),
   });
 
   const data = await res.json();
-  return data.reply || "🤖 (no response)";
+  return {
+    reply: data.reply || "🤖 (no response)",
+    used_rag: data.used_rag || false,
+    retrieved_chunks: data.retrieved_chunks || 0,
+  };
 }
 
 // Start server
