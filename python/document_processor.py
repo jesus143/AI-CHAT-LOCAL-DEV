@@ -36,11 +36,20 @@ class DocumentProcessor:
     def _extract_from_pdf(self, filepath: str) -> str:
         """Extract text from PDF file"""
         text = ""
-        with open(filepath, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
-            for page in pdf_reader.pages:
-                text += page.extract_text() + "\n"
-        return text
+        try:
+            with open(filepath, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                for page in pdf_reader.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\n"
+            
+            if not text.strip():
+                raise ValueError("No text could be extracted from PDF. It may be image-based or encrypted.")
+            
+            return text
+        except Exception as e:
+            raise ValueError(f"Failed to extract text from PDF: {str(e)}")
     
     def _extract_from_docx(self, filepath: str) -> str:
         """Extract text from DOCX file"""

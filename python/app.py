@@ -33,7 +33,14 @@ doc_processor = DocumentProcessor(UPLOAD_FOLDER)
 vector_store = VectorStore()
 
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    """Check if file has an allowed extension"""
+    if '.' not in filename:
+        return False
+    try:
+        extension = filename.rsplit('.', 1)[1].lower()
+        return extension in ALLOWED_EXTENSIONS
+    except IndexError:
+        return False
 
 
 @app.route("/chat", methods=["POST"])
@@ -157,6 +164,10 @@ def upload_file():
         try:
             filename = secure_filename(file.filename)
             
+            # Ensure filename still has extension after secure_filename
+            if not filename or '.' not in filename:
+                return jsonify({"error": "Invalid filename after sanitization"}), 400
+            
             # Save file
             filepath = doc_processor.save_file(file, filename)
             logger(f"File saved: {filepath}")
@@ -182,7 +193,10 @@ def upload_file():
             })
         
         except Exception as e:
+            import traceback
+            error_detail = traceback.format_exc()
             logger(f"Error processing file: {e}")
+            logger(f"Traceback: {error_detail}")
             return jsonify({"error": f"Error processing file: {str(e)}"}), 500
     
     return jsonify({"error": "File type not allowed. Please upload txt, pdf, or docx files."}), 400
