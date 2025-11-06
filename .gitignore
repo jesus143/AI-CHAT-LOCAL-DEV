@@ -1,2 +1,48 @@
-node_modules
-python/env
+# Dependencies
+node_modules/
+
+# Python virtual environments
+python/env/
+python/venv/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+
+# Database files
+python/test.db
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploaded files
+python/uploads/
+
+# Vector database (FAISS)
+python/faiss_db/
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
