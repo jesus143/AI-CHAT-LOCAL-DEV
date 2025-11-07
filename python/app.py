@@ -24,13 +24,13 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
 # Performance Configuration
-N_RESULTS = 2  # Number of chunks to retrieve (2 is faster, 3 is more context)
+N_RESULTS = 3  # Number of chunks to retrieve (2 is faster, 3 is more context)
 CHUNK_SIZE = 500  # Chunk size in characters (smaller = faster, larger = more context)
 CHUNK_OVERLAP = 50  # Overlap between chunks
 
 # Global conversation history
 conversation_history = []
-MAX_HISTORY = 10  # keep only last 10 exchanges
+MAX_HISTORY = 1  # keep only last 10 exchanges
 DB_PATH = "test.db"  # SQLite file
 
 # Initialize RAG components
@@ -76,15 +76,15 @@ def chat():
             if retrieved_chunks:
                 context = "\n\nRelevant context from uploaded documents:\n"
                 for i, chunk in enumerate(retrieved_chunks, 1):
-                    context += f"\n[Context {i}] (from {chunk['filename']}):\n{chunk['text']}\n"
+                    context += f"\n[Context {i}] (from {chunk['filename']} | chunk {chunk.get('chunk_id', 'n/a')}):\n{chunk['text']}\n"
                 logger(f"Retrieved {len(retrieved_chunks)} relevant chunks")
     
     # Build message with context if available
     message_with_context = user_message
     if context:
-        message_with_context = f"{context}\n\nQ: {user_message}\n\nAnswer concisely and short as possible based on context above. If unsure, say 'Not sure based on provided info.'"
+        message_with_context = f"{context}\n\nQ: {user_message}\n\nAnswer concisely based on context above. If unsure, just say nothing.'"
     else:
-        message_with_context = f"{user_message}\n\nAnswer as concisely as possible and short as possible."
+        message_with_context = f"{user_message}\n\nAnswer as concisely as possible."
     
     conversation_history.append({
         "role": "user",
@@ -120,12 +120,23 @@ def chat():
 
     conversation_history.append({"role": "ai", "content": ai_response})
 
+    # Prepare structured sources for client rendering
+    sources = []
+    for ch in retrieved_chunks:
+        sources.append({
+            "filename": ch.get("filename"),
+            "chunk_id": ch.get("chunk_id"),
+            "length": ch.get("length"),
+            "distance": ch.get("distance")
+        })
+
     return jsonify({
         "reply": ai_response,
         "sql_result": sql_result,
         "history": conversation_history,
         "retrieved_chunks": len(retrieved_chunks),
-        "used_rag": len(retrieved_chunks) > 0
+        "used_rag": len(retrieved_chunks) > 0,
+        "sources": sources
     })
 
 

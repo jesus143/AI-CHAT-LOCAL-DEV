@@ -54,6 +54,7 @@ wss.on("connection", (ws) => {
           sender: "ai",
           text: aiData.reply,
           usedRag: aiData.used_rag || false,
+          sources: aiData.sources || []
         })
       );
     } catch (err) {
@@ -87,6 +88,7 @@ async function getAIResponse(message, selectedFiles = null) {
     reply: data.reply || "🤖 (no response)",
     used_rag: data.used_rag || false,
     retrieved_chunks: data.retrieved_chunks || 0,
+    sources: data.sources || []
   };
 }
 

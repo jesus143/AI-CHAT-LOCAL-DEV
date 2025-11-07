@@ -46,3 +46,19 @@ python/faiss_db/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+.env.local

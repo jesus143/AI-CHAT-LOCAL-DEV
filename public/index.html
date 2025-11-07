@@ -139,15 +139,35 @@
     const ws = new WebSocket("ws://localhost:3000");
     let typingDiv = null;
     let uploadedFiles = [];
+    let isWaitingResponse = false;
 
     // WebSocket handlers
     ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      addMessage(msg.text, msg.sender, msg.usedRag, msg.sources || []);
+      if (msg.sender === "ai") {
+        if (typingDiv) {
+          typingDiv.remove();
+          typingDiv = null;
+        }
+        setLoading(false);
+      }
+    };
+
+    ws.onerror = () => {
       if (typingDiv) {
         typingDiv.remove();
         typingDiv = null;
       }
-      const msg = JSON.parse(event.data);
-      addMessage(msg.text, msg.sender, msg.usedRag);
+      setLoading(false);
+    };
+
+    ws.onclose = () => {
+      if (typingDiv) {
+        typingDiv.remove();
+        typingDiv = null;
+      }
+      setLoading(false);
     };
 
     ws.onopen = () => {
@@ -167,6 +187,9 @@
         // Get selected files
         const selectedFiles = getSelectedFiles();
         
+        // Set loading state
+        setLoading(true);
+
         // Send message with selected files info
         ws.send(JSON.stringify({
           message: text,
@@ -183,7 +206,7 @@
       return Array.from(checkboxes).map(cb => cb.value);
     }
 
-    function addMessage(text, sender, usedRag = false) {
+    function addMessage(text, sender, usedRag = false, sources = []) {
       const div = document.createElement("div");
       div.className = "msg " + sender;
 
@@ -209,12 +232,31 @@
         div.textContent = text;
       }
 
-      // Add RAG indicator if context was used
+      // Add RAG indicator and sources if context was used
       if (sender === "ai" && usedRag) {
         const indicator = document.createElement("div");
         indicator.className = "rag-indicator";
         indicator.textContent = "✓ Answer based on your documents";
         div.appendChild(indicator);
+
+        if (Array.isArray(sources) && sources.length > 0) {
+          const srcList = document.createElement("div");
+          srcList.style.marginTop = "6px";
+          srcList.style.fontSize = "11px";
+          srcList.style.color = "#555";
+          const header = document.createElement("div");
+          header.textContent = "Sources:";
+          srcList.appendChild(header);
+          sources.slice(0, 5).forEach((s, idx) => {
+            const item = document.createElement("div");
+            const fname = s.filename || "unknown";
+            const chunkId = (s.chunk_id !== undefined && s.chunk_id !== null) ? s.chunk_id : "n/a";
+            const dist = (typeof s.distance === "number") ? `, dist=${s.distance.toFixed(4)}` : "";
+            item.textContent = `- ${fname} (chunk ${chunkId}${dist})`;
+            srcList.appendChild(item);
+          });
+          div.appendChild(srcList);
+        }
       }
 
       chat.appendChild(div);
@@ -227,6 +269,13 @@
       typingDiv.innerHTML = '<div class="spinner"></div> AI is thinking...';
       chat.appendChild(typingDiv);
       chat.scrollTop = chat.scrollHeight;
+    }
+
+    function setLoading(loading) {
+      isWaitingResponse = loading;
+      sendBtn.disabled = loading;
+      input.disabled = loading;
+      sendBtn.textContent = loading ? "Sending..." : "Send";
     }
 
     // File upload functionality
